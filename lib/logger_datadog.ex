@@ -8,16 +8,14 @@ defmodule LoggerDatadog do
   defstruct [:api_token, :service, socket: []]
 
   @impl true
-  def init({__MODULE__, token}) do
-    opts = Application.get_env(:logger, :datadog)
+  def init({__MODULE__, token}),
+    do: init({__MODULE__, token, Application.get_env(:logger, :datadog)})
 
-    {:ok, configure(token, opts)}
-  end
+  def init({__MODULE__, token, options}), do: {:ok, configure(token, options)}
 
   @impl true
-  def handle_call({:configure, opts}, %{api_token: token} = state) do
-    {:ok, :ok, configure(token, opts, state)}
-  end
+  def handle_call({:configure, opts}, %{api_token: token} = state),
+    do: {:ok, :ok, configure(token, opts, state)}
 
   @impl true
   def handle_event({level, gl, {Logger, msg, ts, meta}}, state) when gl != node() do
@@ -42,12 +40,6 @@ defmodule LoggerDatadog do
 
   def handle_event(:flush, state), do: {:ok, state}
 
-  def handle_event(event, _state) do
-    IO.inspect(event)
-
-    raise "Unknown event"
-  end
-
   defp configure(token, opts, state \\ %__MODULE__{}) do
     _ = for {mod, sock} <- state.socket, do: mod.close(sock)
 
@@ -60,7 +52,14 @@ defmodule LoggerDatadog do
 
     socket =
       if tls do
-        {:ok, socket} = :ssl.connect(tcp_socket, handshake: :full)
+        options =
+          if is_list(tls) do
+            tls
+          else
+            [handshake: :full]
+          end
+
+        {:ok, socket} = :ssl.connect(tcp_socket, options)
 
         [{:ssl, socket}, {:gen_tcp, tcp_socket}]
       else

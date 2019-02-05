@@ -28,8 +28,10 @@ defmodule LoggerDatadogTest do
   end
 
   defp metadata do
+    values = tuple({atom(:alphanumeric), string(:ascii)})
+
     uniq_list_of(
-      tuple({atom(:alphanumeric), string(:ascii)}),
+      values,
       uniq_fun: &elem(&1, 0),
       min_length: 1)
   end
