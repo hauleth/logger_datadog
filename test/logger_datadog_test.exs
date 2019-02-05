@@ -7,18 +7,19 @@ defmodule LoggerDatadogTest do
   @moduletag capture_log: true
 
   setup do
-    port = 10516
-    token = to_string(System.unique_integer())
+    port = 6000 + :rand.uniform(500)
+    token = "dd_token_#{port}"
+
+    logger = {LoggerDatadog, api_token: token, port: port}
 
     {:ok, _pid} = start_supervised({Listener, port: port, pid: self()})
-
-    Logger.add_backend({LoggerDatadog, token}, flush: true)
+    {:ok, _} = Logger.add_backend(logger, flush: true)
 
     on_exit fn ->
-      Logger.remove_backend({LoggerDatadog, token}, flush: true)
+      Logger.remove_backend(logger, flush: true)
     end
 
-    [port: port, token: token]
+    [token: token]
   end
 
   defp log do

@@ -9,7 +9,7 @@ defmodule Listener do
   def init(config) do
     state = struct(__MODULE__, config)
 
-    {:ok, lsocket} = :gen_tcp.listen(state.port, [:binary, packet: 0, reuseaddr: true])
+    {:ok, lsocket} = :gen_tcp.listen(state.port, [:binary, packet: 0])
 
     {:ok, struct(state, lsocket: lsocket), {:continue, :listen}}
   end

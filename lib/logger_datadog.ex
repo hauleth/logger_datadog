@@ -8,14 +8,17 @@ defmodule LoggerDatadog do
   defstruct [:api_token, :service, socket: []]
 
   @impl true
-  def init({__MODULE__, token}),
-    do: init({__MODULE__, token, Application.get_env(:logger, :datadog)})
+  def init(__MODULE__), do: init({__MODULE__, []})
 
-  def init({__MODULE__, token, options}), do: {:ok, configure(token, options)}
+  def init({__MODULE__, opts}) do
+    system_opts = Application.get_env(:logger, :datadog) || []
+
+    {:ok, configure(Keyword.merge(system_opts, opts))}
+  end
 
   @impl true
-  def handle_call({:configure, opts}, %{api_token: token} = state),
-    do: {:ok, :ok, configure(token, opts, state)}
+  def handle_call({:configure, options}, state),
+    do: {:ok, :ok, configure(options, state)}
 
   @impl true
   def handle_event({level, gl, {Logger, msg, ts, meta}}, state) when gl != node() do
@@ -40,15 +43,20 @@ defmodule LoggerDatadog do
 
   def handle_event(:flush, state), do: {:ok, state}
 
-  defp configure(token, opts, state \\ %__MODULE__{}) do
+  defp configure(opts, state \\ %__MODULE__{}) do
     _ = for {mod, sock} <- state.socket, do: mod.close(sock)
 
+    token = Keyword.fetch!(opts, :api_token)
     service = Keyword.get(opts, :service, "elixir")
-    tls = Keyword.get(opts, :tls, true)
-    endpoint = Keyword.get(opts, :endpoint, "intake.logs.datadoghq.com")
-    port = Keyword.get(opts, :port, 10516)
+    tls = Keyword.get(opts, :tls, false)
+    endpoint =
+      case Keyword.get(opts, :endpoint, "intake.logs.datadoghq.com") do
+        binary when is_binary(binary) -> String.to_charlist(binary)
+        other -> other
+      end
+    port = Keyword.get(opts, :port, 10514)
 
-    {:ok, tcp_socket} = :gen_tcp.connect(to_charlist(endpoint), port, [:binary])
+    {:ok, tcp_socket} = :gen_tcp.connect(endpoint, port, [:binary])
 
     socket =
       if tls do
